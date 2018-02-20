@@ -17,11 +17,15 @@
 
 //--------------------------------------------------------------
 void ofApp::setup(){
-    
-    /* This is stuff you always need.*/
-      
-    //samples from http://freesound.org
-    normSamp.load(ofToDataPath("voice_.wav"));
+
+#ifdef      PI_VERSION
+    gpio18.setup("18");
+    gpio18.export_gpio();
+    gpio18.setdir_gpio("out");
+    gpio17.setup("17");
+    gpio17.export_gpio();
+    gpio17.setdir_gpio("in");
+#endif
     
     ofEnableAlphaBlending();
     ofSetupScreen();
@@ -31,7 +35,6 @@ void ofApp::setup(){
     sampleRate 	= 44100; /* Sampling Rate */
     bufferSize	= 512; /* Buffer Size. you have to fill this buffer with sound using the for loop in the audioOut method */
     
-    
     ofxMaxiSettings::setup(sampleRate, 2, initialBufferSize);
     
     ofSetVerticalSync(true);
@@ -40,10 +43,13 @@ void ofApp::setup(){
     
       ofBackground(0,0,0);
     
-    ofSoundStreamSetup(2,2,this, sampleRate, bufferSize, 4); /* this has to happen at the end of setup - it switches on the DAC */
+    
+    soundstream.printDeviceList();
+    soundstream.setDeviceID(4);
+    
+    soundstream.setup(this, 2, 2, sampleRate, bufferSize, 4);
+    
 
-
-   // processSound(normSamp);
 
     recordingOn = false;
     
@@ -52,7 +58,18 @@ void ofApp::setup(){
 //--------------------------------------------------------------
 void ofApp::update(){
     
+#ifdef      PI_VERSION
+    gpio17.getval_gpio(recButton);
+    
+    recButton  =  !recButton;
+    if(recButton){
+        setupRecording();
+    } else {
+        processSoundVec();
+    }
 
+    
+#endif
     
 }
 
@@ -62,7 +79,9 @@ void ofApp::draw(){
     
     
 }
-int myrandom (int i) { return std::rand()%i;}
+int myrandom(int i){
+    return std::rand()%i;
+}
 
 maxiSample ofApp::processSound(maxiSample recording){
     
@@ -71,7 +90,7 @@ maxiSample ofApp::processSound(maxiSample recording){
     maxiFilter band;
     
     out = recording;
-    double frequencyValues = 44100*0.8;
+    double frequencyValues = 44100*0.3;
     float buffer1[(int)frequencyValues];
     double lengthSamp = out.getLength();
     double sampChunks = lengthSamp/frequencyValues;
@@ -110,7 +129,7 @@ void ofApp::processSoundVec(){
     maxiRecorder rec;
     maxiFilter band;
     
-    double frequencyValues = 44100*0.8;
+    double frequencyValues = 44100*0.6;
     float buffer1[(int)frequencyValues];
     double lengthSamp = recorder.size();
     double sampChunks = lengthSamp/frequencyValues;
@@ -121,9 +140,11 @@ void ofApp::processSoundVec(){
     }
     
     std::random_shuffle ( order.begin(), order.end(),myrandom);
-    
-    
-    rec.setup(ofToDataPath("newRecording.wav"));
+    string name = "recording";
+    name = name+ofToString(recCount);
+    name = name+".wav";
+    rec.setup(ofToDataPath(name));
+    recCount++;
     rec.startRecording();
     for(double i = 0 ; i < sampChunks; i++){
         double pos = order[i]*frequencyValues;
@@ -135,19 +156,19 @@ void ofApp::processSoundVec(){
     
     rec.stopRecording();
     rec.saveToWav();
-
-    
+        
 }
 
 
 //--------------------------------------------------------------
 void ofApp::audioOut(float * output, int bufferSize, int nChannels) {
     
-    
-    for (int i = 0; i < bufferSize; i++){
-        
-        
-        
+    if(playBack){
+        for (int i = 0; i < bufferSize; i++){
+            double wave = playbackSound.play();
+            output[i*nChannels] = wave;
+            output[i*nChannels+1] = wave;
+        }
     }
   
     
@@ -167,24 +188,36 @@ void ofApp::audioIn(float * input, int bufferSize, int nChannels){
 }
 
 void ofApp::setupRecording(){
-    if(recorder.size() > 0){
-        recorder.clear();
-    }
+        recorder.resize(0);
     bufferCount = 1;
-    recordingOn =! recordingOn;
+    if(recordingOn  == true){
+        recordingOn = false;
+    } else {
+        recordingOn = true;
+    }
 }
 
 
 //--------------------------------------------------------------
 void ofApp::keyPressed(int key){
     if(key =='a'){
-        recButton  =! recButton;
+        if(recButton  == true){
+            recButton = false;
+        } else {
+            recButton = true;
+        }
+
         if(recButton){
+            
             setupRecording();
         } else {
             processSoundVec();
         }
     }
+    if(key =='p'){
+        playbackSound.load(ofToDataPath("recording0.wav"));
+        playBack =! playBack;
+        }
    }
 
 //--------------------------------------------------------------
@@ -199,6 +232,10 @@ void ofApp::mouseMoved(int x, int y){
 
 
 void ofApp::exit(){
+#ifdef PI_VERSION
+    gpio17.unexport_gpio();
+    gpio18.unexport_gpio();
+#endif
 }
 
 

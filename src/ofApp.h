@@ -1,18 +1,15 @@
 #pragma once
 
+//#define PI_VERSION
+
 #include "ofMain.h"
-#include "ofxMaxim.h"
 #include "ofxMaxim.h"
 #include "maxiGrains.h"
 #include "ofxOsc.h"
 #include <sys/time.h>
-
-#define HOST "localhost"
-#define RECEIVEPORT 12000
-#define SENDPORT 6448
-
-typedef hannWinFunctor grainPlayerWin;
-
+#ifdef PI_VERSION
+#include "ofxGPIO.h"
+#endif
 
 class ofApp : public ofBaseApp{
     
@@ -29,7 +26,6 @@ public:
     void windowResized(int w, int h);
     void dragEvent(ofDragInfo dragInfo);
     void gotMessage(ofMessage msg);
-    void init_band_arrays(float ***data_ptr, int dim_x, int dim_y);
     maxiSample processSound(maxiSample recording);
     void processSoundVec();
     void audioOut(float * output, int bufferSize, int nChannels);
@@ -41,18 +37,28 @@ public:
     int		initialBufferSize; /* buffer size */
     int		sampleRate;
 
-    
+    ofSoundStream soundstream;
     
     double outputs[2];
     
     //processing sound
     maxiSample normSamp;
+    maxiSample playbackSound;
     
     //sound recording
     bool recordingOn;
     bool recButton;
+    bool playBack;
     vector<float> recorder;
     double bufferCount;
+    int recCount;
+    
+    //PI STUFF
+#ifdef      PI_VERSION
+    GPIO gpio18;
+    GPIO gpio17;
+    bool state_button
+#endif
 };
 
 
